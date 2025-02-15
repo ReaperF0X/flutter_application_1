@@ -1,9 +1,11 @@
-import 'dart:io';
+import 'dart:io'; // ✅ Pour Mobile
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:flutter/foundation.dart' show kIsWeb; // ✅ Pour détecter Web
+import 'dart:html' as html; // ✅ Pour gérer les fichiers Web
 
 class PostPage extends StatefulWidget {
   const PostPage({super.key});
@@ -18,24 +20,64 @@ class _PostPageState extends State<PostPage> {
   final TextEditingController _priceController = TextEditingController();
   String _selectedCategory = 'Électronique';
   String _selectedCondition = 'Neuf';
-  File? _imageFile;
+  
+  File? _imageFile; // ✅ Pour mobile
+  String _imageFileUrl = ""; // ✅ Pour stocker l'URL d'image (Web & Mobile)
+
   bool _isLoading = false;
+  final ImagePicker _picker = ImagePicker();
 
   final List<String> _categories = ['Électronique', 'Mode', 'Immobilier', 'Automobile', 'Maison', 'Loisirs'];
   final List<String> _conditions = ['Neuf', 'Occasion'];
-  final ImagePicker _picker = ImagePicker();
 
+  // ✅ MODIFICATION : Fonction pour sélectionner une image
   Future<void> _pickImage() async {
-    final pickedFile = await _picker.pickImage(source: ImageSource.gallery);
-    if (pickedFile != null) {
-      setState(() {
-        _imageFile = File(pickedFile.path);
+    if (kIsWeb) {
+      final html.FileUploadInputElement uploadInput = html.FileUploadInputElement()..accept = 'image/*';
+      uploadInput.click();
+      uploadInput.onChange.listen((event) async {
+        final file = uploadInput.files!.first;
+        final reader = html.FileReader();
+        reader.readAsDataUrl(file);
+        reader.onLoadEnd.listen((event) {
+          setState(() {
+            _imageFileUrl = reader.result as String; // ✅ Stocke l'image sous forme de Data URL (Base64)
+          });
+        });
       });
+    } else {
+      final pickedFile = await _picker.pickImage(source: ImageSource.gallery);
+      if (pickedFile != null) {
+        setState(() {
+          _imageFile = File(pickedFile.path); // ✅ Stocke l'image locale pour Mobile
+        });
+      }
     }
   }
 
+  // ✅ Fonction pour téléverser l'image sur Firebase Storage (non modifiée)
+  Future<String?> _uploadImage() async {
+    try {
+      if (kIsWeb) {
+        return _imageFileUrl; 
+      } else {
+        String fileName = '${DateTime.now().millisecondsSinceEpoch}.jpg';
+        Reference storageRef = FirebaseStorage.instance.ref().child('annonces/$fileName');
+        UploadTask uploadTask = storageRef.putFile(_imageFile!);
+        TaskSnapshot snapshot = await uploadTask;
+        return await snapshot.ref.getDownloadURL();
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erreur lors du téléversement de l\'image : $e')),
+      );
+      return null;
+    }
+  }
+
+  // ✅ MODIFICATION : Ajout des champs `likes` et `dislikes` lors de la publication
   Future<void> _postAnnonce() async {
-    if (_titleController.text.isEmpty || _descriptionController.text.isEmpty || _priceController.text.isEmpty || _imageFile == null) {
+    if (_titleController.text.isEmpty || _descriptionController.text.isEmpty || _priceController.text.isEmpty || (_imageFile == null && _imageFileUrl.isEmpty)) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Veuillez remplir tous les champs et ajouter une image')),
       );
@@ -45,13 +87,18 @@ class _PostPageState extends State<PostPage> {
     setState(() => _isLoading = true);
 
     final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return;
+    if (user == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Vous devez être connecté pour poster une annonce')),
+      );
+      return;
+    }
 
-    String fileName = '${DateTime.now().millisecondsSinceEpoch}.jpg';
-    Reference storageRef = FirebaseStorage.instance.ref().child('annonces/$fileName');
-    UploadTask uploadTask = storageRef.putFile(_imageFile!);
-    TaskSnapshot snapshot = await uploadTask;
-    String imageUrl = await snapshot.ref.getDownloadURL();
+    String? imageUrl = await _uploadImage();
+    if (imageUrl == null) {
+      setState(() => _isLoading = false);
+      return;
+    }
 
     await FirebaseFirestore.instance.collection('annonces').add({
       'titre': _titleController.text.trim(),
@@ -62,6 +109,8 @@ class _PostPageState extends State<PostPage> {
       'imageUrl': imageUrl,
       'userId': user.uid,
       'date': Timestamp.now(),
+      'likes': 0,     // ✅ Ajoute `likes` avec une valeur par défaut à 0
+      'dislikes': 0,  // ✅ Ajoute `dislikes` avec une valeur par défaut à 0
     });
 
     setState(() {
@@ -70,28 +119,16 @@ class _PostPageState extends State<PostPage> {
       _descriptionController.clear();
       _priceController.clear();
       _imageFile = null;
+      _imageFileUrl = "";
+      _selectedCategory = 'Électronique';
+      _selectedCondition = 'Neuf';
     });
 
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text("Annonce publiée"),
-        content: const Text("Votre annonce a été publiée avec succès."),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              Navigator.pop(context);
-            },
-            child: const Text("Retour à l'accueil"),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text("Continuer"),
-          ),
-        ],
-      ),
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Annonce publiée avec succès !')),
     );
+
+    Navigator.pop(context);
   }
 
   @override
@@ -100,26 +137,52 @@ class _PostPageState extends State<PostPage> {
       appBar: AppBar(title: const Text('Publier une annonce')),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            DropdownButton<String>(
-              value: _selectedCategory,
-              items: _categories.map((category) => DropdownMenuItem(value: category, child: Text(category))).toList(),
-              onChanged: (value) => setState(() => _selectedCategory = value!),
-            ),
-            TextField(controller: _titleController, decoration: const InputDecoration(labelText: 'Titre')),
-            TextField(controller: _descriptionController, maxLines: 3, decoration: const InputDecoration(labelText: 'Description')),
-            DropdownButton<String>(
-              value: _selectedCondition,
-              items: _conditions.map((condition) => DropdownMenuItem(value: condition, child: Text(condition))).toList(),
-              onChanged: (value) => setState(() => _selectedCondition = value!),
-            ),
-            TextField(controller: _priceController, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Prix (€)')),
-            const SizedBox(height: 10),
-            _imageFile == null ? const Text("Aucune image sélectionnée") : Image.file(_imageFile!, height: 200, fit: BoxFit.cover),
-            ElevatedButton(onPressed: _pickImage, child: const Text("Ajouter une image")),
-            _isLoading ? const CircularProgressIndicator() : ElevatedButton(onPressed: _postAnnonce, child: const Text("Publier l'annonce")),
-          ],
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Catégorie', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              DropdownButton<String>(
+                value: _selectedCategory,
+                isExpanded: true,
+                items: _categories.map((category) => DropdownMenuItem(value: category, child: Text(category))).toList(),
+                onChanged: (value) => setState(() => _selectedCategory = value!),
+              ),
+              const SizedBox(height: 16),
+
+              TextField(controller: _titleController, decoration: const InputDecoration(labelText: 'Titre')),
+              const SizedBox(height: 16),
+
+              TextField(controller: _descriptionController, maxLines: 3, decoration: const InputDecoration(labelText: 'Description')),
+              const SizedBox(height: 16),
+
+              const Text('État du produit', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              DropdownButton<String>(
+                value: _selectedCondition,
+                isExpanded: true,
+                items: _conditions.map((condition) => DropdownMenuItem(value: condition, child: Text(condition))).toList(),
+                onChanged: (value) => setState(() => _selectedCondition = value!),
+              ),
+              const SizedBox(height: 16),
+
+              TextField(controller: _priceController, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Prix (€)')),
+              const SizedBox(height: 16),
+
+              _imageFile == null && _imageFileUrl.isEmpty
+                  ? const Text('Aucune image sélectionnée')
+                  : kIsWeb
+                      ? Image.network(_imageFileUrl, height: 200, fit: BoxFit.cover)
+                      : Image.file(_imageFile!, height: 200, fit: BoxFit.cover),
+              const SizedBox(height: 8),
+
+              ElevatedButton(onPressed: _pickImage, child: const Text('Ajouter une image')),
+              const SizedBox(height: 24),
+
+              _isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : ElevatedButton(onPressed: _postAnnonce, child: const Text('Publier l\'annonce')),
+            ],
+          ),
         ),
       ),
     );
