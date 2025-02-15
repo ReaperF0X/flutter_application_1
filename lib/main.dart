@@ -11,6 +11,8 @@ import 'MessagesPage.dart';
 import 'ProfilePage.dart';
 import 'LoginPage.dart';
 import 'RegisterPage.dart';
+import 'ChangePasswordPage.dart';
+import 'EditProfilePage.dart';
 
 Future <void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -40,8 +42,10 @@ class MyApp extends StatelessWidget {
           : const MyHomePage(title: 'ICAM Marketplace'),
       routes: {
         '/login': (context) => const LoginPage(),
-        '/home': (context) => const MyHomePage(title: 'ICAM Marketplace'),
         '/register': (context) => const RegisterPage(),
+        '/home': (context) => const MyHomePage(title: 'ICAM Marketplace'),
+        '/change-password': (context) => const ChangePasswordPage(),
+        '/edit-profile': (context) => const EditProfilePage(),
       },
     );
   }

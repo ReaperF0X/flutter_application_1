@@ -13,6 +13,7 @@ class _LoginPageState extends State<LoginPage> {
   final TextEditingController _passwordController = TextEditingController();
 
   Future<void> _login() async {
+    // Votre logique de connexion Firebase
     try {
       final email = _emailController.text;
       final password = _passwordController.text;
@@ -22,24 +23,6 @@ class _LoginPageState extends State<LoginPage> {
       );
       // Redirection après connexion réussie
       Navigator.pushReplacementNamed(context, '/home');
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erreur : ${e.toString()}')),
-      );
-    }
-  }
-
-  Future<void> _register() async {
-    try {
-      final email = _emailController.text;
-      final password = _passwordController.text;
-      await FirebaseAuth.instance.createUserWithEmailAndPassword(
-        email: email,
-        password: password,
-      );
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Compte créé avec succès !')),
-      );
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Erreur : ${e.toString()}')),
@@ -62,20 +45,22 @@ class _LoginPageState extends State<LoginPage> {
               controller: _emailController,
               decoration: const InputDecoration(labelText: 'Email'),
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 16),
             TextField(
               controller: _passwordController,
               obscureText: true,
               decoration: const InputDecoration(labelText: 'Mot de passe'),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 24),
             ElevatedButton(
               onPressed: _login,
               child: const Text('Se connecter'),
             ),
             TextButton(
-              onPressed: _register,
-              child: const Text('Créer un compte'),
+              onPressed: () {
+                Navigator.pushNamed(context, '/register'); // Redirection vers RegisterPage
+              },
+              child: const Text('Pas encore de compte ? Inscrivez-vous ici'),
             ),
           ],
         ),

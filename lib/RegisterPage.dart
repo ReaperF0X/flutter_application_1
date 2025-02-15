@@ -1,5 +1,6 @@
-import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/material.dart';
 
 class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key});
@@ -12,11 +13,13 @@ class _RegisterPageState extends State<RegisterPage> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   final TextEditingController _confirmPasswordController = TextEditingController();
+  final TextEditingController _usernameController = TextEditingController();
 
   Future<void> _register() async {
     final email = _emailController.text.trim();
     final password = _passwordController.text.trim();
     final confirmPassword = _confirmPasswordController.text.trim();
+    final username = _usernameController.text.trim();
 
     if (password != confirmPassword) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -26,14 +29,27 @@ class _RegisterPageState extends State<RegisterPage> {
     }
 
     try {
-      await FirebaseAuth.instance.createUserWithEmailAndPassword(
+      // Création de l'utilisateur dans Firebase Auth
+      final userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
         email: email,
         password: password,
       );
+
+      // Ajout des données supplémentaires dans Firestore
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(userCredential.user!.uid)
+          .set({
+        'username': username,
+        'email': email,
+        'photoUrl': '', // URL de la photo de profil (à mettre à jour plus tard)
+      });
+
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Compte créé avec succès !')),
       );
-      Navigator.pushReplacementNamed(context, '/login'); // Rediriger vers LoginPage
+
+      Navigator.pushReplacementNamed(context, '/login'); // Redirige vers LoginPage
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Erreur : ${e.toString()}')),
@@ -53,6 +69,11 @@ class _RegisterPageState extends State<RegisterPage> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             TextField(
+              controller: _usernameController,
+              decoration: const InputDecoration(labelText: 'Nom d\'utilisateur'),
+            ),
+            const SizedBox(height: 16),
+            TextField(
               controller: _emailController,
               decoration: const InputDecoration(labelText: 'Email'),
               keyboardType: TextInputType.emailAddress,
@@ -60,14 +81,14 @@ class _RegisterPageState extends State<RegisterPage> {
             const SizedBox(height: 16),
             TextField(
               controller: _passwordController,
-              decoration: const InputDecoration(labelText: 'Mot de passe'),
               obscureText: true,
+              decoration: const InputDecoration(labelText: 'Mot de passe'),
             ),
             const SizedBox(height: 16),
             TextField(
               controller: _confirmPasswordController,
-              decoration: const InputDecoration(labelText: 'Confirmer le mot de passe'),
               obscureText: true,
+              decoration: const InputDecoration(labelText: 'Confirmer le mot de passe'),
             ),
             const SizedBox(height: 24),
             ElevatedButton(
