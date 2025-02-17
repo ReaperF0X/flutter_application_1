@@ -6,6 +6,7 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter/foundation.dart' show kIsWeb; // ✅ Pour détecter Web
 import 'dart:html' as html; // ✅ Pour gérer les fichiers Web
+import 'HomePage.dart';
 
 class PostPage extends StatefulWidget {
   const PostPage({super.key});
@@ -20,7 +21,7 @@ class _PostPageState extends State<PostPage> {
   final TextEditingController _priceController = TextEditingController();
   String _selectedCategory = 'Électronique';
   String _selectedCondition = 'Neuf';
-  
+
   File? _imageFile; // ✅ Pour mobile
   String _imageFileUrl = ""; // ✅ Pour stocker l'URL d'image (Web & Mobile)
 
@@ -30,7 +31,7 @@ class _PostPageState extends State<PostPage> {
   final List<String> _categories = ['Électronique', 'Mode', 'Immobilier', 'Automobile', 'Maison', 'Loisirs'];
   final List<String> _conditions = ['Neuf', 'Occasion'];
 
-  // ✅ MODIFICATION : Fonction pour sélectionner une image
+  // ✅ Sélectionner une image pour Web et Mobile
   Future<void> _pickImage() async {
     if (kIsWeb) {
       final html.FileUploadInputElement uploadInput = html.FileUploadInputElement()..accept = 'image/*';
@@ -55,7 +56,7 @@ class _PostPageState extends State<PostPage> {
     }
   }
 
-  // ✅ Fonction pour téléverser l'image sur Firebase Storage (non modifiée)
+  // ✅ Téléverser l'image sur Firebase Storage
   Future<String?> _uploadImage() async {
     try {
       if (kIsWeb) {
@@ -75,7 +76,7 @@ class _PostPageState extends State<PostPage> {
     }
   }
 
-  // ✅ MODIFICATION : Ajout des champs `likes` et `dislikes` lors de la publication
+  // ✅ Publier une annonce avec un bouton pour retourner à l'accueil
   Future<void> _postAnnonce() async {
     if (_titleController.text.isEmpty || _descriptionController.text.isEmpty || _priceController.text.isEmpty || (_imageFile == null && _imageFileUrl.isEmpty)) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -109,8 +110,8 @@ class _PostPageState extends State<PostPage> {
       'imageUrl': imageUrl,
       'userId': user.uid,
       'date': Timestamp.now(),
-      'likes': 0,     // ✅ Ajoute `likes` avec une valeur par défaut à 0
-      'dislikes': 0,  // ✅ Ajoute `dislikes` avec une valeur par défaut à 0
+      'likes': 0,    
+      'dislikes': 0,  
     });
 
     setState(() {
@@ -124,11 +125,30 @@ class _PostPageState extends State<PostPage> {
       _selectedCondition = 'Neuf';
     });
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Annonce publiée avec succès !')),
+    // ✅ Ajout d’un dialogue pour revenir à l'accueil
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Annonce publiée"),
+        content: const Text("Votre annonce a été publiée avec succès."),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              Navigator.pushReplacementNamed(context, '/home'); // ✅ Garde le ruban
+            },
+            child: const Text("Retour à l'accueil"),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              Navigator.pushReplacementNamed(context, '/post'); // ✅ Reste sur PostPage
+            },
+            child: const Text("Continuer"),
+          ),
+        ],
+      ),
     );
-
-    Navigator.pop(context);
   }
 
   @override

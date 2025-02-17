@@ -13,6 +13,8 @@ import 'LoginPage.dart';
 import 'RegisterPage.dart';
 import 'ChangePasswordPage.dart';
 import 'EditProfilePage.dart';
+import 'AnnoncePage.dart';
+import 'ProfilVendeurPage.dart';
 
 Future <void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -46,6 +48,9 @@ class MyApp extends StatelessWidget {
         '/home': (context) => const MyHomePage(title: 'ICAM Marketplace'),
         '/change-password': (context) => const ChangePasswordPage(),
         '/edit-profile': (context) => const EditProfilePage(),
+        '/post': (context) => const PostPage(),  // ✅ Ajout pour garder le ruban
+        '/annonce': (context) => const AnnoncePage(annonceId: ""), // ✅ Ajout pour garder le ruban
+        '/vendeur': (context) => const ProfilVendeurPage(vendeurId: ""), // ✅ Ajout
       },
     );
   }
@@ -69,6 +74,8 @@ class _MyHomePageState extends State<MyHomePage> {
     PostPage(),
     MessagesPage(),
     ProfilePage(),
+    AnnoncePage(annonceId: ""),
+    ProfilVendeurPage(vendeurId: ""), 
   ];
 
   void _onItemTapped(int index) {
@@ -118,22 +125,6 @@ class _MyHomePageState extends State<MyHomePage> {
         selectedItemColor: Colors.orange,
         unselectedItemColor: Colors.black54,
       ),
-      /*body: const Center(
-        child: Column(
-          fi: MainAxisAlignment.center,
-          children: <Widget>[
-            Text(
-              'You have pushed the button this many times:',
-            ),
-            
-          ],
-        ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed:  () {},
-        tooltip: 'Increment',
-        child: const Icon(Icons.add),
-      ), */// This trailing comma makes auto-formatting nicer for build methods.
     );
   }
 }
