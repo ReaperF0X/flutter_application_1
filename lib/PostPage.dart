@@ -31,7 +31,7 @@ class _PostPageState extends State<PostPage> {
   final List<String> _categories = ['Électronique', 'Mode', 'Immobilier', 'Automobile', 'Maison', 'Loisirs'];
   final List<String> _conditions = ['Neuf', 'Occasion'];
 
-  // ✅ Sélectionner une image pour Web et Mobile
+  /// ✅ Sélectionner une image pour Web et Mobile
   Future<void> _pickImage() async {
     if (kIsWeb) {
       final html.FileUploadInputElement uploadInput = html.FileUploadInputElement()..accept = 'image/*';
@@ -56,7 +56,7 @@ class _PostPageState extends State<PostPage> {
     }
   }
 
-  // ✅ Téléverser l'image sur Firebase Storage
+  /// ✅ Téléverser l'image sur Firebase Storage
   Future<String?> _uploadImage() async {
     try {
       if (kIsWeb) {
@@ -76,7 +76,7 @@ class _PostPageState extends State<PostPage> {
     }
   }
 
-  // ✅ Publier une annonce avec un bouton pour retourner à l'accueil
+  /// ✅ Publier une annonce avec gestion de la date et redirection fluide
   Future<void> _postAnnonce() async {
     if (_titleController.text.isEmpty || _descriptionController.text.isEmpty || _priceController.text.isEmpty || (_imageFile == null && _imageFileUrl.isEmpty)) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -109,9 +109,9 @@ class _PostPageState extends State<PostPage> {
       'etat': _selectedCondition,
       'imageUrl': imageUrl,
       'userId': user.uid,
-      'date': Timestamp.now(),
-      'likes': 0,    
-      'dislikes': 0,  
+      'date': Timestamp.now(),  // ✅ Ajout de la date de publication
+      'likes': 0,
+      'dislikes': 0,
     });
 
     setState(() {
@@ -135,7 +135,7 @@ class _PostPageState extends State<PostPage> {
           TextButton(
             onPressed: () {
               Navigator.pop(context);
-              Navigator.pushReplacementNamed(context, '/home'); // ✅ Garde le ruban
+              Navigator.pushReplacementNamed(context, '/home'); // ✅ Retour à l'accueil avec ruban
             },
             child: const Text("Retour à l'accueil"),
           ),

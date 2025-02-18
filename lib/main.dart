@@ -1,4 +1,3 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -16,111 +15,118 @@ import 'EditProfilePage.dart';
 import 'AnnoncePage.dart';
 import 'ProfilVendeurPage.dart';
 
-Future <void> main() async {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(
-  options: DefaultFirebaseOptions.currentPlatform,
-  );
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  
   runApp(const MyApp());
-//runApp(const MyApp());
 }
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
-  // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter Demo',
+      title: 'ICAM Marketplace',
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
         useMaterial3: true,
       ),
-      //home: const MyHomePage(title: 'Flutter Demo Home Page'),
-      // Vérifie si un utilisateur est connecté
-      home: FirebaseAuth.instance.currentUser == null
-          ? const LoginPage()
-          : const MyHomePage(title: 'ICAM Marketplace'),
+      home: const NavigationWrapper(), // ✅ Charge directement l'application avec le ruban
       routes: {
-        '/login': (context) => const LoginPage(),
+        '/login': (context) => const NavigationWrapper(initialIndex: 5), // ✅ Login avec le ruban
         '/register': (context) => const RegisterPage(),
-        '/home': (context) => const MyHomePage(title: 'ICAM Marketplace'),
+        '/home': (context) => const NavigationWrapper(),
         '/change-password': (context) => const ChangePasswordPage(),
         '/edit-profile': (context) => const EditProfilePage(),
-        '/post': (context) => const PostPage(),  // ✅ Ajout pour garder le ruban
-        '/annonce': (context) => const AnnoncePage(annonceId: ""), // ✅ Ajout pour garder le ruban
-        '/vendeur': (context) => const ProfilVendeurPage(vendeurId: ""), // ✅ Ajout
+        '/post': (context) => const NavigationWrapper(initialIndex: 2), // ✅ Reste avec le ruban
+        '/annonce': (context) => const NavigationWrapper(initialIndex: 6),
+        '/vendeur': (context) => const NavigationWrapper(initialIndex: 7),
       },
     );
   }
 }
 
-class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
+/// ✅ **NavigationWrapper : Gestion centralisée de la navigation avec le ruban**
+class NavigationWrapper extends StatefulWidget {
+  final int initialIndex;
 
-  final String title;
+  const NavigationWrapper({super.key, this.initialIndex = 0});
 
   @override
-  State<MyHomePage> createState() => _MyHomePageState();
+  _NavigationWrapperState createState() => _NavigationWrapperState();
 }
 
-class _MyHomePageState extends State<MyHomePage> {
-  int _selectedIndex = 0;
+class _NavigationWrapperState extends State<NavigationWrapper> {
+  late int _selectedIndex;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedIndex = widget.initialIndex;
+  }
 
   final List<Widget> _pages = [
-    HomePage(),
-    FavoritePage(),
-    PostPage(),
-    MessagesPage(),
-    ProfilePage(),
-    AnnoncePage(annonceId: ""),
-    ProfilVendeurPage(vendeurId: ""), 
+    const HomePage(), // ✅ Page accessible sans connexion
+    const FavoritePage(), // 🔒 Protégé
+    const PostPage(), // 🔒 Protégé
+    const MessagesPage(), // 🔒 Protégé
+    const ProfilePage(), // 🔒 Protégé
+    const LoginPage(), // ✅ Page de connexion avec le ruban
+    const AnnoncePage(annonceId: ""), // ✅ Page annonce libre
+    const ProfilVendeurPage(vendeurId: ""), // ✅ Page vendeur libre
   ];
 
   void _onItemTapped(int index) {
+    final user = FirebaseAuth.instance.currentUser;
+
+    // ✅ Redirection vers Login si l’utilisateur tente d’accéder à une page protégée
+    if ((index == 1 || index == 2 || index == 3 || index == 4) && user == null) {
+      setState(() {
+        _selectedIndex = 5; // ✅ Redirige vers Login avec le ruban
+      });
+      return;
+    }
+
     setState(() {
       _selectedIndex = index;
     });
   }
+
   Future<void> _logout() async {
     await FirebaseAuth.instance.signOut();
-    Navigator.pushReplacementNamed(context, '/login');
+    setState(() {
+      _selectedIndex = 5; // ✅ Redirige vers Login après déconnexion
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    FirebaseFirestore db = FirebaseFirestore.instance;
-    db.collection("info").get().then((event) {
-      for (var doc in event.docs) {
-        print("${doc.id} => ${doc.data}");
-      }
-    });
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        title: Text(widget.title),
+        title: const Text('ICAM Marketplace'),
         actions: [
-          IconButton(
-            onPressed: _logout,
-            icon: const Icon(Icons.logout),
-          ),
+          FirebaseAuth.instance.currentUser != null
+              ? IconButton(
+                  onPressed: _logout,
+                  icon: const Icon(Icons.logout),
+                )
+              : const SizedBox.shrink(),
         ],
       ),
       body: _pages[_selectedIndex],
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _selectedIndex,
         onTap: _onItemTapped,
-        items: [
+        items: const [
           BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Accueil'),
-          BottomNavigationBarItem(
-              icon: Icon(Icons.bookmarks), label: 'favoris'),
-          BottomNavigationBarItem(
-              icon: Icon(Icons.add_circle_outline), label: 'Publier'),
-          BottomNavigationBarItem(
-              icon: Icon(Icons.question_answer), label: 'Messages'),
-          BottomNavigationBarItem(
-              icon: Icon(Icons.account_circle), label: 'Profil'),
+          BottomNavigationBarItem(icon: Icon(Icons.bookmarks), label: 'Favoris'),
+          BottomNavigationBarItem(icon: Icon(Icons.add_circle_outline), label: 'Publier'),
+          BottomNavigationBarItem(icon: Icon(Icons.question_answer), label: 'Messages'),
+          BottomNavigationBarItem(icon: Icon(Icons.account_circle), label: 'Profil'),
+          BottomNavigationBarItem(icon: Icon(Icons.login), label: 'Connexion'), // ✅ Login avec ruban
         ],
         selectedItemColor: Colors.orange,
         unselectedItemColor: Colors.black54,

@@ -1,12 +1,14 @@
+import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter/material.dart';
 import 'ChangePasswordPage.dart';
 import 'EditProfilePage.dart';
+import 'MesAnnoncesPage.dart';
 
 class ProfilePage extends StatelessWidget {
   const ProfilePage({super.key});
 
+  /// ✅ Récupération des informations de l'utilisateur connecté
   Future<Map<String, dynamic>> _getUserData() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user != null) {
@@ -16,6 +18,7 @@ class ProfilePage extends StatelessWidget {
     return {};
   }
 
+  /// ✅ Déconnexion de l'utilisateur
   Future<void> _logout(BuildContext context) async {
     await FirebaseAuth.instance.signOut();
     Navigator.pushReplacementNamed(context, '/login');
@@ -46,50 +49,66 @@ class ProfilePage extends StatelessWidget {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
+                  // ✅ Image de profil ou icône par défaut
                   CircleAvatar(
                     radius: 50,
-                    backgroundImage: userData['photoUrl'] != null && userData['photoUrl'].isNotEmpty
-                      ? NetworkImage(userData['photoUrl'])
-                      : null,
-                    child: userData['photoUrl'] == null || userData['photoUrl'].isEmpty
-                      ? const Icon(Icons.person, size: 50) // Icône par défaut si pas de photo
-                      : null,
+                    backgroundImage: (photoUrl.isNotEmpty)
+                        ? NetworkImage(photoUrl)
+                        : null,
+                    child: (photoUrl.isEmpty)
+                        ? const Icon(Icons.person, size: 50) // Icône par défaut si pas de photo
+                        : null,
                   ),
-                  /*Image.network(
-                    userData['photoUrl'],
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) {
-                      return Image.asset('assets/default_avatar.png'); // Image locale par défaut
-                    },
-                  ),*/                   
-                  
+
                   const SizedBox(height: 16),
+
+                  // ✅ Nom d'utilisateur
                   Text(
                     username,
                     style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                   ),
+
                   const SizedBox(height: 8),
+
+                  // ✅ Email de l'utilisateur
                   Text(
                     email,
                     style: const TextStyle(fontSize: 16, color: Colors.grey),
                   ),
+
                   const SizedBox(height: 32),
 
-                  //  Boutons centrés
+                  // ✅ Bouton pour gérer les annonces
+                  ElevatedButton(
+                    onPressed: () => Navigator.push(
+                      context, MaterialPageRoute(builder: (context) => const MesAnnoncesPage()),
+                    ),
+                    child: const Text('Gérer mes annonces'),
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  // ✅ Bouton pour modifier le profil
                   ElevatedButton(
                     onPressed: () => Navigator.push(
                       context, MaterialPageRoute(builder: (context) => const EditProfilePage()),
                     ),
                     child: const Text('Modifier le profil'),
                   ),
+
                   const SizedBox(height: 16),
+
+                  // ✅ Bouton pour changer le mot de passe
                   ElevatedButton(
                     onPressed: () => Navigator.push(
                       context, MaterialPageRoute(builder: (context) => const ChangePasswordPage()),
                     ),
                     child: const Text('Changer le mot de passe'),
                   ),
+
                   const SizedBox(height: 16),
+
+                  // ✅ Bouton de déconnexion
                   ElevatedButton(
                     onPressed: () => _logout(context),
                     style: ElevatedButton.styleFrom(backgroundColor: Colors.red),

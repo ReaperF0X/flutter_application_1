@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'AnnoncePage.dart';
 
 class ProfilVendeurPage extends StatefulWidget {
   final String vendeurId;
@@ -77,20 +76,23 @@ class _ProfilVendeurPageState extends State<ProfilVendeurPage> {
     }
   }
 
-  /// ✅ Gère les likes/dislikes avec bascule automatique
+  /// ✅ Gère les likes/dislikes avec protection (Un seul vote autorisé)
   Future<void> _handleVote(bool isLike) async {
     final userId = FirebaseAuth.instance.currentUser?.uid;
-    if (userId == null) return;
+    if (userId == null) {
+      Navigator.pushNamed(context, '/login'); // ✅ Redirection vers login
+      return;
+    }
 
     setState(() {
       if (isLike) {
-        if (hasDisliked) totalDislikes--; 
-        totalLikes += hasLiked ? -1 : 1;
+        if (hasDisliked) totalDislikes--; // ✅ Annule le dislike s'il existait
+        totalLikes += hasLiked ? -1 : 1; // ✅ Ajoute ou enlève le like
         hasLiked = !hasLiked;
         hasDisliked = false;
       } else {
-        if (hasLiked) totalLikes--;
-        totalDislikes += hasDisliked ? -1 : 1;
+        if (hasLiked) totalLikes--; // ✅ Annule le like s'il existait
+        totalDislikes += hasDisliked ? -1 : 1; // ✅ Ajoute ou enlève le dislike
         hasDisliked = !hasDisliked;
         hasLiked = false;
       }
@@ -104,10 +106,15 @@ class _ProfilVendeurPageState extends State<ProfilVendeurPage> {
     _loadVendeurData();
   }
 
-  /// ✅ Ajoute un commentaire unique
+  /// ✅ Ajoute un commentaire unique et visible par tout le monde
   Future<void> _addComment(String comment) async {
     final userId = FirebaseAuth.instance.currentUser?.uid;
-    if (userId == null || userComment != null) return; 
+    if (userId == null) {
+      Navigator.pushNamed(context, '/login'); // ✅ Redirection vers login
+      return;
+    }
+
+    if (comment.isEmpty) return;
 
     setState(() => userComment = comment);
 
@@ -135,14 +142,34 @@ class _ProfilVendeurPageState extends State<ProfilVendeurPage> {
                 Text("$totalDislikes"),
               ],
             ),
-            if (userComment == null) ...[
-              TextField(
-                onSubmitted: _addComment,
-                decoration: const InputDecoration(labelText: "Ajouter un commentaire"),
-              ),
-            ] else ...[
-              Text("Commentaire: $userComment"),
-            ],
+          ],
+          const Divider(),
+          const Text("Commentaires :", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          Expanded(
+            child: StreamBuilder<QuerySnapshot>(
+              stream: FirebaseFirestore.instance.collection('interactions').where('comment', isNotEqualTo: null).snapshots(),
+              builder: (context, snapshot) {
+                if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+
+                final comments = snapshot.data!.docs.where((doc) => doc.id.startsWith(widget.vendeurId)).toList();
+
+                return ListView(
+                  children: comments.map((doc) {
+                    final data = doc.data() as Map<String, dynamic>;
+                    return ListTile(
+                      leading: const Icon(Icons.comment),
+                      title: Text(data['comment'] ?? ""),
+                    );
+                  }).toList(),
+                );
+              },
+            ),
+          ),
+          if (FirebaseAuth.instance.currentUser != null && userComment == null) ...[
+            TextField(
+              onSubmitted: _addComment,
+              decoration: const InputDecoration(labelText: "Ajouter un commentaire"),
+            ),
           ],
         ]),
       ),
