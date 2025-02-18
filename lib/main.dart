@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -14,6 +15,7 @@ import 'ChangePasswordPage.dart';
 import 'EditProfilePage.dart';
 import 'AnnoncePage.dart';
 import 'ProfilVendeurPage.dart';
+import 'MesAnnoncesPage.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -33,22 +35,24 @@ class MyApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
         useMaterial3: true,
       ),
-      home: const NavigationWrapper(), // ✅ Charge directement l'application avec le ruban
+      initialRoute: '/', // ✅ Définit la route principale
       routes: {
-        '/login': (context) => const NavigationWrapper(initialIndex: 5), // ✅ Login avec le ruban
+        '/': (context) => const NavigationWrapper(),
+        '/login': (context) => const LoginPage(), // ✅ Redirige directement vers LoginPage
         '/register': (context) => const RegisterPage(),
         '/home': (context) => const NavigationWrapper(),
         '/change-password': (context) => const ChangePasswordPage(),
         '/edit-profile': (context) => const EditProfilePage(),
-        '/post': (context) => const NavigationWrapper(initialIndex: 2), // ✅ Reste avec le ruban
+        '/post': (context) => const NavigationWrapper(initialIndex: 2),
         '/annonce': (context) => const NavigationWrapper(initialIndex: 6),
         '/vendeur': (context) => const NavigationWrapper(initialIndex: 7),
+        '/mes-annonces': (context) => const MesAnnoncesPage(),
       },
     );
   }
 }
 
-/// ✅ **NavigationWrapper : Gestion centralisée de la navigation avec le ruban**
+/// ✅ **Gestion centralisée de la navigation avec le ruban**
 class NavigationWrapper extends StatefulWidget {
   final int initialIndex;
 
@@ -68,24 +72,22 @@ class _NavigationWrapperState extends State<NavigationWrapper> {
   }
 
   final List<Widget> _pages = [
-    const HomePage(), // ✅ Page accessible sans connexion
+    const HomePage(), // ✅ Accessible sans connexion
     const FavoritePage(), // 🔒 Protégé
     const PostPage(), // 🔒 Protégé
     const MessagesPage(), // 🔒 Protégé
     const ProfilePage(), // 🔒 Protégé
-    const LoginPage(), // ✅ Page de connexion avec le ruban
     const AnnoncePage(annonceId: ""), // ✅ Page annonce libre
     const ProfilVendeurPage(vendeurId: ""), // ✅ Page vendeur libre
+    const LoginPage(),
   ];
 
   void _onItemTapped(int index) {
     final user = FirebaseAuth.instance.currentUser;
 
-    // ✅ Redirection vers Login si l’utilisateur tente d’accéder à une page protégée
+    // ✅ Redirection vers Login si une action protégée est tentée sans connexion
     if ((index == 1 || index == 2 || index == 3 || index == 4) && user == null) {
-      setState(() {
-        _selectedIndex = 5; // ✅ Redirige vers Login avec le ruban
-      });
+      Navigator.pushNamed(context, '/login');
       return;
     }
 
@@ -96,9 +98,7 @@ class _NavigationWrapperState extends State<NavigationWrapper> {
 
   Future<void> _logout() async {
     await FirebaseAuth.instance.signOut();
-    setState(() {
-      _selectedIndex = 5; // ✅ Redirige vers Login après déconnexion
-    });
+    Navigator.pushReplacementNamed(context, '/login'); // ✅ Redirige vers login
   }
 
   @override
@@ -108,12 +108,11 @@ class _NavigationWrapperState extends State<NavigationWrapper> {
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
         title: const Text('ICAM Marketplace'),
         actions: [
-          FirebaseAuth.instance.currentUser != null
-              ? IconButton(
-                  onPressed: _logout,
-                  icon: const Icon(Icons.logout),
-                )
-              : const SizedBox.shrink(),
+          if (FirebaseAuth.instance.currentUser != null)
+            IconButton(
+              onPressed: _logout,
+              icon: const Icon(Icons.logout),
+            ),
         ],
       ),
       body: _pages[_selectedIndex],
@@ -126,7 +125,6 @@ class _NavigationWrapperState extends State<NavigationWrapper> {
           BottomNavigationBarItem(icon: Icon(Icons.add_circle_outline), label: 'Publier'),
           BottomNavigationBarItem(icon: Icon(Icons.question_answer), label: 'Messages'),
           BottomNavigationBarItem(icon: Icon(Icons.account_circle), label: 'Profil'),
-          BottomNavigationBarItem(icon: Icon(Icons.login), label: 'Connexion'), // ✅ Login avec ruban
         ],
         selectedItemColor: Colors.orange,
         unselectedItemColor: Colors.black54,
