@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'AnnonceVendeurPage.dart'; // ✅ Importation de la page des annonces du vendeur
 
 class ProfilVendeurPage extends StatefulWidget {
   final String vendeurId;
@@ -18,45 +19,43 @@ class _ProfilVendeurPageState extends State<ProfilVendeurPage> {
   bool hasLiked = false;
   bool hasDisliked = false;
   String? userComment;
+  String? userName;
+  final TextEditingController _commentController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
     _loadVendeurData();
     _checkUserInteraction();
+    _getUserInfo();
   }
 
-  /// ✅ Charge les infos du vendeur et ses likes/dislikes
-  Future<void> _loadVendeurData() async {
-    final doc = await FirebaseFirestore.instance.collection('users').doc(widget.vendeurId).get();
-    if (doc.exists) {
+  /// ✅ Récupère le pseudo de l'utilisateur connecté
+  Future<void> _getUserInfo() async {
+    final userId = FirebaseAuth.instance.currentUser?.uid;
+    if (userId == null) return;
+
+    final userDoc = await FirebaseFirestore.instance.collection('users').doc(userId).get();
+    if (userDoc.exists) {
       setState(() {
-        vendeurData = doc.data();
+        userName = userDoc.data()?['username'] ?? "Utilisateur inconnu";
       });
     }
-
-    final snapshot = await FirebaseFirestore.instance
-        .collection('annonces')
-        .where('userId', isEqualTo: widget.vendeurId)
-        .get();
-
-    int likes = 0;
-    int dislikes = 0;
-    for (var doc in snapshot.docs) {
-      final data = doc.data();
-      int likesValue = (data['likes'] is int) ? data['likes'] as int : (data['likes'] ?? 0).toDouble().toInt();
-      int dislikesValue = (data['dislikes'] is int) ? data['dislikes'] as int : (data['dislikes'] ?? 0).toDouble().toInt();
-      likes += likesValue;
-      dislikes += dislikesValue;
-    }
-
-    setState(() {
-      totalLikes = likes;
-      totalDislikes = dislikes;
-    });
   }
 
-  /// ✅ Vérifie si l'utilisateur a déjà liké/disliké/commenté une annonce de ce vendeur
+  /// ✅ Charge les infos du vendeur et total des likes/dislikes
+  Future<void> _loadVendeurData() async {
+    final vendeurDoc = await FirebaseFirestore.instance.collection('users').doc(widget.vendeurId).get();
+    if (vendeurDoc.exists) {
+      setState(() {
+        vendeurData = vendeurDoc.data();
+        totalLikes = vendeurData?['totalLikes'] ?? 0;
+        totalDislikes = vendeurData?['totalDislikes'] ?? 0;
+      });
+    }
+  }
+
+  /// ✅ Vérifie si l'utilisateur a déjà liké/disliké/commenté
   Future<void> _checkUserInteraction() async {
     final userId = FirebaseAuth.instance.currentUser?.uid;
     if (userId == null) return;
@@ -76,26 +75,40 @@ class _ProfilVendeurPageState extends State<ProfilVendeurPage> {
     }
   }
 
-  /// ✅ Gère les likes/dislikes avec protection (Un seul vote autorisé)
+  /// ✅ Gère les likes/dislikes sans affecter les commentaires
   Future<void> _handleVote(bool isLike) async {
     final userId = FirebaseAuth.instance.currentUser?.uid;
     if (userId == null) {
-      Navigator.pushNamed(context, '/login'); // ✅ Redirection vers login
+      Navigator.pushNamed(context, '/login'); 
       return;
     }
 
-    setState(() {
+    final docRef = FirebaseFirestore.instance.collection('users').doc(widget.vendeurId);
+
+    await FirebaseFirestore.instance.runTransaction((transaction) async {
+      final docSnapshot = await transaction.get(docRef);
+      if (!docSnapshot.exists) return;
+
+      final data = docSnapshot.data()!;
+      int likes = data['totalLikes'] ?? 0;
+      int dislikes = data['totalDislikes'] ?? 0;
+
       if (isLike) {
-        if (hasDisliked) totalDislikes--; // ✅ Annule le dislike s'il existait
-        totalLikes += hasLiked ? -1 : 1; // ✅ Ajoute ou enlève le like
+        if (hasDisliked) dislikes = dislikes > 0 ? dislikes - 1 : 0;
+        likes = hasLiked ? likes - 1 : likes + 1;
         hasLiked = !hasLiked;
         hasDisliked = false;
       } else {
-        if (hasLiked) totalLikes--; // ✅ Annule le like s'il existait
-        totalDislikes += hasDisliked ? -1 : 1; // ✅ Ajoute ou enlève le dislike
+        if (hasLiked) likes = likes > 0 ? likes - 1 : 0;
+        dislikes = hasDisliked ? dislikes - 1 : dislikes + 1;
         hasDisliked = !hasDisliked;
         hasLiked = false;
       }
+
+      transaction.update(docRef, {
+        'totalLikes': likes,
+        'totalDislikes': dislikes,
+      });
     });
 
     await FirebaseFirestore.instance.collection('interactions').doc('${widget.vendeurId}_$userId').set({
@@ -106,21 +119,40 @@ class _ProfilVendeurPageState extends State<ProfilVendeurPage> {
     _loadVendeurData();
   }
 
-  /// ✅ Ajoute un commentaire unique et visible par tout le monde
-  Future<void> _addComment(String comment) async {
+  /// ✅ Ajoute ou modifie un commentaire
+  Future<void> _addOrUpdateComment() async {
     final userId = FirebaseAuth.instance.currentUser?.uid;
     if (userId == null) {
-      Navigator.pushNamed(context, '/login'); // ✅ Redirection vers login
+      Navigator.pushNamed(context, '/login');
       return;
     }
 
+    String comment = _commentController.text.trim();
     if (comment.isEmpty) return;
 
-    setState(() => userComment = comment);
+    setState(() {
+      userComment = comment;
+      _commentController.clear();
+    });
 
     await FirebaseFirestore.instance.collection('interactions').doc('${widget.vendeurId}_$userId').set({
       'comment': comment,
+      'username': userName,
     }, SetOptions(merge: true));
+  }
+
+  /// ✅ Supprime un commentaire
+  Future<void> _deleteComment() async {
+    final userId = FirebaseAuth.instance.currentUser?.uid;
+    if (userId == null) return;
+
+    await FirebaseFirestore.instance.collection('interactions').doc('${widget.vendeurId}_$userId').update({
+      'comment': FieldValue.delete(),
+    });
+
+    setState(() {
+      userComment = null;
+    });
   }
 
   @override
@@ -131,8 +163,17 @@ class _ProfilVendeurPageState extends State<ProfilVendeurPage> {
         padding: const EdgeInsets.all(16.0),
         child: Column(children: [
           if (vendeurData != null) ...[
-            CircleAvatar(radius: 50, backgroundImage: NetworkImage(vendeurData!['photoUrl'] ?? "")),
-            Text(vendeurData!['username'] ?? "Utilisateur inconnu", style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+            CircleAvatar(
+              radius: 50,
+              backgroundImage: vendeurData!['photoUrl'] != null
+                  ? NetworkImage(vendeurData!['photoUrl'])
+                  : null,
+              child: vendeurData!['photoUrl'] == null ? const Icon(Icons.person, size: 50) : null,
+            ),
+            Text(
+              vendeurData!['username'] ?? "Utilisateur inconnu",
+              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+            ),
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
@@ -142,12 +183,26 @@ class _ProfilVendeurPageState extends State<ProfilVendeurPage> {
                 Text("$totalDislikes"),
               ],
             ),
+            const SizedBox(height: 10),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => AnnonceVendeurPage(vendeurId: widget.vendeurId),
+                  ),
+                );
+              },
+              child: const Text("Voir les annonces du vendeur"),
+            ),
           ],
           const Divider(),
           const Text("Commentaires :", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           Expanded(
             child: StreamBuilder<QuerySnapshot>(
-              stream: FirebaseFirestore.instance.collection('interactions').where('comment', isNotEqualTo: null).snapshots(),
+              stream: FirebaseFirestore.instance.collection('interactions')
+                  .where('comment', isNotEqualTo: null)
+                  .snapshots(),
               builder: (context, snapshot) {
                 if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
 
@@ -156,21 +211,27 @@ class _ProfilVendeurPageState extends State<ProfilVendeurPage> {
                 return ListView(
                   children: comments.map((doc) {
                     final data = doc.data() as Map<String, dynamic>;
+                    bool isOwner = data['username'] == userName;
+
                     return ListTile(
                       leading: const Icon(Icons.comment),
                       title: Text(data['comment'] ?? ""),
+                      subtitle: Text("Par ${data['username'] ?? "Utilisateur inconnu"}"),
+                      trailing: isOwner
+                          ? Row(mainAxisSize: MainAxisSize.min, children: [
+                              IconButton(icon: const Icon(Icons.edit, color: Colors.blue), onPressed: _addOrUpdateComment),
+                              IconButton(icon: const Icon(Icons.delete, color: Colors.red), onPressed: _deleteComment),
+                            ])
+                          : null,
                     );
                   }).toList(),
                 );
               },
             ),
           ),
-          if (FirebaseAuth.instance.currentUser != null && userComment == null) ...[
-            TextField(
-              onSubmitted: _addComment,
-              decoration: const InputDecoration(labelText: "Ajouter un commentaire"),
-            ),
-          ],
+          TextField(controller: _commentController, decoration: const InputDecoration(labelText: "Ajouter un commentaire")),
+          const SizedBox(height: 8),
+          ElevatedButton(onPressed: _addOrUpdateComment, child: const Text("Poster le commentaire")),
         ]),
       ),
     );
