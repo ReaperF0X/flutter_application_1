@@ -24,44 +24,57 @@ class _MessagesPageState extends State<MessagesPage> {
       body: StreamBuilder<QuerySnapshot>(
         stream: FirebaseFirestore.instance
             .collection('messages')
-            //.where('users', arrayContains: userId)
-            .orderBy('lastMessageTime', descending: true)
+            .where('users', arrayContains: userId)
             .snapshots(),
         builder: (context, snapshot) {
-          if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+            return const Center(child: Text("Aucune conversation."));
+          }
 
           final messages = snapshot.data!.docs;
 
           return ListView.builder(
             itemCount: messages.length,
             itemBuilder: (context, index) {
-              final data = messages[index].data() as Map<String, dynamic>;
-              final List<dynamic> users = data['users'];
-              final String otherUserId = users.firstWhere((id) => id != userId);
+              final doc = messages[index];
+              final List<dynamic> users = doc['users'];
+              final String chatId = doc.id;
+              final String otherUserId = users.firstWhere((id) => id != userId, orElse: () => '');
 
               return FutureBuilder<DocumentSnapshot>(
                 future: FirebaseFirestore.instance.collection('users').doc(otherUserId).get(),
                 builder: (context, userSnapshot) {
-                  if (!userSnapshot.hasData) return const ListTile(title: Text("Chargement..."));
+                  String otherUserName = "Utilisateur inconnu";
+                  String? photoUrl;
 
-                  final otherUserData = userSnapshot.data!.data() as Map<String, dynamic>;
-                  final String otherUserName = otherUserData['username'] ?? "Utilisateur inconnu";
+                  if (userSnapshot.hasData && userSnapshot.data!.exists) {
+                    final userData = userSnapshot.data!.data() as Map<String, dynamic>;
+                    otherUserName = userData['username'] ?? "Utilisateur inconnu";
+                    photoUrl = userData['photoUrl'];
+                  }
 
                   return ListTile(
                     leading: CircleAvatar(
-                      backgroundImage: otherUserData['photoUrl'] != null
-                          ? NetworkImage(otherUserData['photoUrl'])
+                      radius: 25,
+                      backgroundImage: photoUrl != null && photoUrl.isNotEmpty
+                          ? NetworkImage(photoUrl)
                           : null,
-                      child: otherUserData['photoUrl'] == null ? const Icon(Icons.person) : null,
+                      child: photoUrl == null || photoUrl.isEmpty
+                          ? const Icon(Icons.person, size: 30)
+                          : null,
                     ),
                     title: Text(otherUserName, style: const TextStyle(fontWeight: FontWeight.bold)),
-                    subtitle: Text(data['lastMessage'] ?? "Aucun message"),
+                    subtitle: Text(doc['lastMessage'] ?? "Aucun message"),
+                    trailing: const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
                     onTap: () {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
                           builder: (context) => ChatPage(
-                            chatId: messages[index].id,
+                            chatId: chatId,
                             userId: userId!,
                             otherUserId: otherUserId,
                           ),

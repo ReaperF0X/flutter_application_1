@@ -28,7 +28,7 @@ class _PostPageState extends State<PostPage> {
   bool _isLoading = false;
   final ImagePicker _picker = ImagePicker();
 
-  final List<String> _categories = ['Électronique', 'Mode', 'Immobilier', 'Automobile', 'Maison', 'Loisirs'];
+  final List<String> _categories = ['Électronique', 'Mode', 'Immobilier', 'Automobile', 'Maison', 'Loisirs', 'Autres'];
   final List<String> _conditions = ['Neuf', 'Occasion'];
 
   /// ✅ Sélectionner une image pour Web et Mobile
