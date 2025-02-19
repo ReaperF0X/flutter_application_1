@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'AnnonceVendeurPage.dart'; // ✅ Importation de la page des annonces du vendeur
+import 'AnnonceVendeurPage.dart';
+import 'ChatPage.dart';
 
 class ProfilVendeurPage extends StatefulWidget {
   final String vendeurId;
@@ -30,7 +31,7 @@ class _ProfilVendeurPageState extends State<ProfilVendeurPage> {
     _getUserInfo();
   }
 
-  /// ✅ Récupère le pseudo de l'utilisateur connecté
+  /// ✅ Récupère les infos de l'utilisateur connecté
   Future<void> _getUserInfo() async {
     final userId = FirebaseAuth.instance.currentUser?.uid;
     if (userId == null) return;
@@ -43,7 +44,7 @@ class _ProfilVendeurPageState extends State<ProfilVendeurPage> {
     }
   }
 
-  /// ✅ Charge les infos du vendeur et total des likes/dislikes
+  /// ✅ Charge les infos du vendeur
   Future<void> _loadVendeurData() async {
     final vendeurDoc = await FirebaseFirestore.instance.collection('users').doc(widget.vendeurId).get();
     if (vendeurDoc.exists) {
@@ -75,7 +76,7 @@ class _ProfilVendeurPageState extends State<ProfilVendeurPage> {
     }
   }
 
-  /// ✅ Gère les likes/dislikes sans affecter les commentaires
+  /// ✅ Gère les likes/dislikes
   Future<void> _handleVote(bool isLike) async {
     final userId = FirebaseAuth.instance.currentUser?.uid;
     if (userId == null) {
@@ -119,6 +120,29 @@ class _ProfilVendeurPageState extends State<ProfilVendeurPage> {
     _loadVendeurData();
   }
 
+  /// ✅ Création de la discussion privée
+  void _startChat() async {
+    final userId = FirebaseAuth.instance.currentUser?.uid;
+    if (userId == null || userId == widget.vendeurId) return;
+
+    String chatId = userId.hashCode <= widget.vendeurId.hashCode
+        ? '$userId-${widget.vendeurId}'
+        : '${widget.vendeurId}-$userId';
+
+    await FirebaseFirestore.instance.collection('messages').doc(chatId).set({
+      'users': [userId, widget.vendeurId],
+      'lastMessage': "",
+      'lastMessageTime': FieldValue.serverTimestamp(),
+    });
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ChatPage(chatId: chatId, userId: userId, otherUserId: widget.vendeurId),
+      ),
+    );
+  }
+
   /// ✅ Ajoute ou modifie un commentaire
   Future<void> _addOrUpdateComment() async {
     final userId = FirebaseAuth.instance.currentUser?.uid;
@@ -135,18 +159,18 @@ class _ProfilVendeurPageState extends State<ProfilVendeurPage> {
       _commentController.clear();
     });
 
-    await FirebaseFirestore.instance.collection('interactions').doc('${widget.vendeurId}_$userId').set({
+    await FirebaseFirestore.instance.collection('Commentaires').doc('${widget.vendeurId}_$userId').set({
       'comment': comment,
       'username': userName,
     }, SetOptions(merge: true));
   }
 
-  /// ✅ Supprime un commentaire
+   /// ✅ Supprime un commentaire
   Future<void> _deleteComment() async {
     final userId = FirebaseAuth.instance.currentUser?.uid;
     if (userId == null) return;
 
-    await FirebaseFirestore.instance.collection('interactions').doc('${widget.vendeurId}_$userId').update({
+    await FirebaseFirestore.instance.collection('Commentaires').doc('${widget.vendeurId}_$userId').update({
       'comment': FieldValue.delete(),
     });
 
@@ -170,10 +194,8 @@ class _ProfilVendeurPageState extends State<ProfilVendeurPage> {
                   : null,
               child: vendeurData!['photoUrl'] == null ? const Icon(Icons.person, size: 50) : null,
             ),
-            Text(
-              vendeurData!['username'] ?? "Utilisateur inconnu",
-              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-            ),
+            Text(vendeurData!['username'] ?? "Utilisateur inconnu",
+                style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
@@ -183,7 +205,10 @@ class _ProfilVendeurPageState extends State<ProfilVendeurPage> {
                 Text("$totalDislikes"),
               ],
             ),
-            const SizedBox(height: 10),
+            ElevatedButton(
+              onPressed: _startChat,
+              child: const Text("Envoyer un message"),
+            ),
             ElevatedButton(
               onPressed: () {
                 Navigator.push(
@@ -197,12 +222,9 @@ class _ProfilVendeurPageState extends State<ProfilVendeurPage> {
             ),
           ],
           const Divider(),
-          const Text("Commentaires :", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           Expanded(
             child: StreamBuilder<QuerySnapshot>(
-              stream: FirebaseFirestore.instance.collection('interactions')
-                  .where('comment', isNotEqualTo: null)
-                  .snapshots(),
+              stream: FirebaseFirestore.instance.collection('Commentaires').where('comment', isNotEqualTo: null).snapshots(),
               builder: (context, snapshot) {
                 if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
 
@@ -212,7 +234,6 @@ class _ProfilVendeurPageState extends State<ProfilVendeurPage> {
                   children: comments.map((doc) {
                     final data = doc.data() as Map<String, dynamic>;
                     bool isOwner = data['username'] == userName;
-
                     return ListTile(
                       leading: const Icon(Icons.comment),
                       title: Text(data['comment'] ?? ""),
@@ -225,15 +246,15 @@ class _ProfilVendeurPageState extends State<ProfilVendeurPage> {
                           : null,
                     );
                   }).toList(),
-                );
+                );  
               },
             ),
           ),
           TextField(controller: _commentController, decoration: const InputDecoration(labelText: "Ajouter un commentaire")),
-          const SizedBox(height: 8),
           ElevatedButton(onPressed: _addOrUpdateComment, child: const Text("Poster le commentaire")),
         ]),
       ),
     );
   }
 }
+

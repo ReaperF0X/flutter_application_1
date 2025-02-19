@@ -1,52 +1,79 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'ChatPage.dart';
 
-class MessagesPage extends StatelessWidget {
+class MessagesPage extends StatefulWidget {
   const MessagesPage({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final screenWidth = MediaQuery.of(context).size.width;
+  _MessagesPageState createState() => _MessagesPageState();
+}
 
-    // Données fictives pour les messages
-    final List<Map<String, dynamic>> messages = [
-      {
-        'sender': 'Alice',
-        'lastMessage': 'Bonjour, est-ce encore disponible ?',
-        'time': '12:30',
-      },
-      {
-        'sender': 'Bob',
-        'lastMessage': 'Merci pour la réponse !',
-        'time': '10:15',
-      },
-    ];
+class _MessagesPageState extends State<MessagesPage> {
+  final userId = FirebaseAuth.instance.currentUser?.uid;
+
+  @override
+  Widget build(BuildContext context) {
+    if (userId == null) {
+      return const Center(child: Text("Veuillez vous connecter pour voir vos messages."));
+    }
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Messages'),
-      ),
-      body: Padding(
-        padding: EdgeInsets.all(screenWidth * 0.05),
-        child: ListView.builder(
-          itemCount: messages.length,
-          itemBuilder: (context, index) {
-            final message = messages[index];
-            return Card(
-              margin: EdgeInsets.only(bottom: screenWidth * 0.03),
-              child: ListTile(
-                leading: CircleAvatar(
-                  child: Text(message['sender'][0]),
-                ),
-                title: Text(message['sender']),
-                subtitle: Text(message['lastMessage']),
-                trailing: Text(message['time']),
-                onTap: () {
-                  // Logique pour ouvrir la conversation
+      appBar: AppBar(title: const Text("Messages")),
+      body: StreamBuilder<QuerySnapshot>(
+        stream: FirebaseFirestore.instance
+            .collection('messages')
+            //.where('users', arrayContains: userId)
+            .orderBy('lastMessageTime', descending: true)
+            .snapshots(),
+        builder: (context, snapshot) {
+          if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+
+          final messages = snapshot.data!.docs;
+
+          return ListView.builder(
+            itemCount: messages.length,
+            itemBuilder: (context, index) {
+              final data = messages[index].data() as Map<String, dynamic>;
+              final List<dynamic> users = data['users'];
+              final String otherUserId = users.firstWhere((id) => id != userId);
+
+              return FutureBuilder<DocumentSnapshot>(
+                future: FirebaseFirestore.instance.collection('users').doc(otherUserId).get(),
+                builder: (context, userSnapshot) {
+                  if (!userSnapshot.hasData) return const ListTile(title: Text("Chargement..."));
+
+                  final otherUserData = userSnapshot.data!.data() as Map<String, dynamic>;
+                  final String otherUserName = otherUserData['username'] ?? "Utilisateur inconnu";
+
+                  return ListTile(
+                    leading: CircleAvatar(
+                      backgroundImage: otherUserData['photoUrl'] != null
+                          ? NetworkImage(otherUserData['photoUrl'])
+                          : null,
+                      child: otherUserData['photoUrl'] == null ? const Icon(Icons.person) : null,
+                    ),
+                    title: Text(otherUserName, style: const TextStyle(fontWeight: FontWeight.bold)),
+                    subtitle: Text(data['lastMessage'] ?? "Aucun message"),
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => ChatPage(
+                            chatId: messages[index].id,
+                            userId: userId!,
+                            otherUserId: otherUserId,
+                          ),
+                        ),
+                      );
+                    },
+                  );
                 },
-              ),
-            );
-          },
-        ),
+              );
+            },
+          );
+        },
       ),
     );
   }
