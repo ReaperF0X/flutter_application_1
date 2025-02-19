@@ -30,9 +30,10 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      debugShowCheckedModeBanner: false,
       title: 'ICAM Marketplace',
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+        colorScheme: ColorScheme.fromSeed(seedColor: Colors.orange),
         useMaterial3: true,
       ),
       initialRoute: '/', // ✅ Définit la route principale
@@ -47,6 +48,10 @@ class MyApp extends StatelessWidget {
         '/annonce': (context) => const NavigationWrapper(initialIndex: 6),
         '/vendeur': (context) => const NavigationWrapper(initialIndex: 7),
         '/mes-annonces': (context) => const MesAnnoncesPage(),
+        //'/mes-annonces': (context) => NavigationWrapper(),
+        '/favoris': (context) => const FavoritePage(),
+        '/messages': (context) => const MessagesPage(),
+        '/profile': (context) => const ProfilePage(),
       },
     );
   }
@@ -111,7 +116,7 @@ class _NavigationWrapperState extends State<NavigationWrapper> {
           if (FirebaseAuth.instance.currentUser != null)
             IconButton(
               onPressed: _logout,
-              icon: const Icon(Icons.logout),
+              icon: const Icon(Icons.logout, color: Colors.red),
             ),
         ],
       ),

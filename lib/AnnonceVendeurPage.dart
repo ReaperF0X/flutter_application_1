@@ -1,14 +1,26 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'AnnoncePage.dart'; // ✅ Importation de la page des détails d'annonce
+import 'LoginPage.dart'; // ✅ Importation de la page de connexion
 
 class AnnonceVendeurPage extends StatelessWidget {
   final String vendeurId;
 
   const AnnonceVendeurPage({super.key, required this.vendeurId});
 
+  /// ✅ Redirige les utilisateurs non connectés vers la page de connexion
+  void _redirectToLogin(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const LoginPage()),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final userId = FirebaseAuth.instance.currentUser?.uid;
+
     return Scaffold(
       appBar: AppBar(title: const Text("Annonces du vendeur")),
       body: StreamBuilder<QuerySnapshot>(
@@ -54,6 +66,31 @@ class AnnonceVendeurPage extends StatelessWidget {
             },
           );
         },
+      ),
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: 0, // L'index dépend de l'endroit où vous vous trouvez
+        onTap: (index) {
+          if (index == 0) {
+            Navigator.pushReplacementNamed(context, '/home');
+          } else if (index == 1) {
+            userId == null ? _redirectToLogin(context) : Navigator.pushReplacementNamed(context, '/favoris');
+          } else if (index == 2) {
+            userId == null ? _redirectToLogin(context) : Navigator.pushReplacementNamed(context, '/post');
+          } else if (index == 3) {
+            userId == null ? _redirectToLogin(context) : Navigator.pushReplacementNamed(context, '/messages');
+          } else if (index == 4) {
+            userId == null ? _redirectToLogin(context) : Navigator.pushReplacementNamed(context, '/profile');
+          }
+        },
+        items: const [
+          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Accueil'),
+          BottomNavigationBarItem(icon: Icon(Icons.bookmarks), label: 'Favoris'),
+          BottomNavigationBarItem(icon: Icon(Icons.add_circle_outline), label: 'Publier'),
+          BottomNavigationBarItem(icon: Icon(Icons.question_answer), label: 'Messages'),
+          BottomNavigationBarItem(icon: Icon(Icons.account_circle), label: 'Profil'),
+        ],
+        selectedItemColor: Colors.orange,
+        unselectedItemColor: Colors.black54,
       ),
     );
   }

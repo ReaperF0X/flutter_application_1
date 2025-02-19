@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'ProfilVendeurPage.dart';
-import 'main.dart';
+import 'LoginPage.dart'; // ✅ Importation de la page de connexion
 
 class AnnoncePage extends StatefulWidget {
   final String annonceId;
@@ -72,7 +72,7 @@ class _AnnoncePageState extends State<AnnoncePage> {
   /// ✅ Ajoute ou supprime l'annonce des favoris
   Future<void> _toggleFavorite() async {
     if (userId == null) {
-      Navigator.pushNamed(context, '/login'); // ✅ Redirection si non connecté
+      _redirectToLogin();
       return;
     }
 
@@ -99,6 +99,14 @@ class _AnnoncePageState extends State<AnnoncePage> {
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(isFavorite ? "Ajouté aux favoris !" : "Retiré des favoris")),
+    );
+  }
+
+  /// ✅ Redirige les utilisateurs non connectés vers la page de connexion
+  void _redirectToLogin() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const LoginPage()),
     );
   }
 
@@ -194,18 +202,18 @@ class _AnnoncePageState extends State<AnnoncePage> {
               ),
             ),
       bottomNavigationBar: BottomNavigationBar(
-        currentIndex: 0, // L'index dépend de l'endroit où vous vous trouvez
+        currentIndex: 0,
         onTap: (index) {
           if (index == 0) {
             Navigator.pushReplacementNamed(context, '/home');
           } else if (index == 1) {
-            Navigator.pushReplacementNamed(context, '/favoris');
+            userId == null ? _redirectToLogin() : Navigator.pushReplacementNamed(context, '/favoris');
           } else if (index == 2) {
-            Navigator.pushReplacementNamed(context, '/post');
+            userId == null ? _redirectToLogin() : Navigator.pushReplacementNamed(context, '/post');
           } else if (index == 3) {
-            Navigator.pushReplacementNamed(context, '/messages');
+            userId == null ? _redirectToLogin() : Navigator.pushReplacementNamed(context, '/messages');
           } else if (index == 4) {
-            Navigator.pushReplacementNamed(context, '/profile');
+            userId == null ? _redirectToLogin() : Navigator.pushReplacementNamed(context, '/profile');
           }
         },
         items: const [

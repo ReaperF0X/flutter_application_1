@@ -65,6 +65,31 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
           ],
         ),
       ),
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: 0, // L'index dépend de l'endroit où vous vous trouvez
+        onTap: (index) {
+          if (index == 0) {
+            Navigator.pushReplacementNamed(context, '/home');
+          } else if (index == 1) {
+            Navigator.pushReplacementNamed(context, '/favoris');
+          } else if (index == 2) {
+            Navigator.pushReplacementNamed(context, '/post');
+          } else if (index == 3) {
+            Navigator.pushReplacementNamed(context, '/messages');
+          } else if (index == 4) {
+            Navigator.pushReplacementNamed(context, '/profile');
+          }
+        },
+        items: const [
+          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Accueil'),
+          BottomNavigationBarItem(icon: Icon(Icons.bookmarks), label: 'Favoris'),
+          BottomNavigationBarItem(icon: Icon(Icons.add_circle_outline), label: 'Publier'),
+          BottomNavigationBarItem(icon: Icon(Icons.question_answer), label: 'Messages'),
+          BottomNavigationBarItem(icon: Icon(Icons.account_circle), label: 'Profil'),
+        ],
+        selectedItemColor: Colors.orange,
+        unselectedItemColor: Colors.black54,
+      ),
     );
   }
 }

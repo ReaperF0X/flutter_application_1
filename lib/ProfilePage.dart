@@ -21,6 +21,7 @@ class ProfilePage extends StatefulWidget {
 class _ProfilePageState extends State<ProfilePage> {
   String? userId;
   String _imageUrl = "";
+  String _username = "Chargement...";
   File? _imageFile;
   final ImagePicker _picker = ImagePicker();
   bool _isLoading = false;
@@ -40,6 +41,7 @@ class _ProfilePageState extends State<ProfilePage> {
     if (doc.exists) {
       setState(() {
         _imageUrl = doc.data()?['photoUrl'] ?? "";
+        _username = doc.data()?['username'] ?? "Utilisateur inconnu";
       });
     }
   }
@@ -126,6 +128,14 @@ class _ProfilePageState extends State<ProfilePage> {
                 ],
               ),
               const SizedBox(height: 16),
+
+              /// ✅ **Affichage du pseudo de l'utilisateur**
+              Text(
+                _username,
+                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 16),
+
               ElevatedButton(
                 onPressed: _uploadImage,
                 child: const Text("Mettre à jour la photo"),

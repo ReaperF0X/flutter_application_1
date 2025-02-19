@@ -15,6 +15,23 @@ class ChatPage extends StatefulWidget {
 
 class _ChatPageState extends State<ChatPage> {
   final TextEditingController _messageController = TextEditingController();
+  String otherUserName = "Chargement..."; // ✅ Pseudo de l'autre utilisateur
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchOtherUserName(); // ✅ Récupérer le pseudo au lancement
+  }
+
+  /// ✅ Récupère le pseudo de l'autre utilisateur depuis Firestore
+  Future<void> _fetchOtherUserName() async {
+    final doc = await FirebaseFirestore.instance.collection('users').doc(widget.otherUserId).get();
+    if (doc.exists) {
+      setState(() {
+        otherUserName = doc.data()?['username'] ?? "Utilisateur inconnu";
+      });
+    }
+  }
 
   /// ✅ Fonction pour envoyer un message
   Future<void> _sendMessage() async {
@@ -40,7 +57,7 @@ class _ChatPageState extends State<ChatPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text("Discussion avec ${widget.otherUserId}")),
+      appBar: AppBar(title: Text("Discussion avec $otherUserName")), // ✅ Affichage du pseudo
       body: Column(
         children: [
           /// ✅ **Affichage des messages en temps réel**
@@ -70,9 +87,24 @@ class _ChatPageState extends State<ChatPage> {
                           color: isMe ? Colors.blueAccent : Colors.grey[300],
                           borderRadius: BorderRadius.circular(10),
                         ),
-                        child: Text(
-                          data['message'],
-                          style: TextStyle(color: isMe ? Colors.white : Colors.black),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              data['message'],
+                              style: TextStyle(color: isMe ? Colors.white : Colors.black),
+                            ),
+                            const SizedBox(height: 5),
+                            Text(
+                              data['timestamp'] != null
+                                  ? DateTime.fromMillisecondsSinceEpoch(
+                                          data['timestamp'].seconds * 1000)
+                                      .toLocal()
+                                      .toString()
+                                  : "Envoi en cours...",
+                              style: TextStyle(fontSize: 10, color: Colors.grey[600]),
+                            ),
+                          ],
                         ),
                       ),
                     );
@@ -104,6 +136,31 @@ class _ChatPageState extends State<ChatPage> {
             ),
           ),
         ],
+      ),
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: 0, // L'index dépend de l'endroit où vous vous trouvez
+        onTap: (index) {
+          if (index == 0) {
+            Navigator.pushReplacementNamed(context, '/home');
+          } else if (index == 1) {
+            Navigator.pushReplacementNamed(context, '/favoris');
+          } else if (index == 2) {
+            Navigator.pushReplacementNamed(context, '/post');
+          } else if (index == 3) {
+            Navigator.pushReplacementNamed(context, '/messages');
+          } else if (index == 4) {
+            Navigator.pushReplacementNamed(context, '/profile');
+          }
+        },
+        items: const [
+          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Accueil'),
+          BottomNavigationBarItem(icon: Icon(Icons.bookmarks), label: 'Favoris'),
+          BottomNavigationBarItem(icon: Icon(Icons.add_circle_outline), label: 'Publier'),
+          BottomNavigationBarItem(icon: Icon(Icons.question_answer), label: 'Messages'),
+          BottomNavigationBarItem(icon: Icon(Icons.account_circle), label: 'Profil'),
+        ],
+        selectedItemColor: Colors.orange,
+        unselectedItemColor: Colors.black54,
       ),
     );
   }
