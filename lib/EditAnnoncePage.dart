@@ -3,8 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:flutter/foundation.dart' show kIsWeb; // ✅ Pour détecter Web
-import 'dart:html' as html; // ✅ Pour Web
+import 'package:flutter/foundation.dart' show kIsWeb; // ✅ Pour vérifier si c'est Web
 
 class EditAnnoncePage extends StatefulWidget {
   final String annonceId;
@@ -52,45 +51,26 @@ class _EditAnnoncePageState extends State<EditAnnoncePage> {
     }
   }
 
-  /// ✅ Sélectionne une nouvelle image
+  /// ✅ Sélectionne une nouvelle image (Mobile uniquement)
   Future<void> _pickImage() async {
-    if (kIsWeb) {
-      final html.FileUploadInputElement uploadInput = html.FileUploadInputElement()..accept = 'image/*';
-      uploadInput.click();
-      uploadInput.onChange.listen((event) async {
-        final file = uploadInput.files!.first;
-        final reader = html.FileReader();
-        reader.readAsDataUrl(file);
-        reader.onLoadEnd.listen((event) {
-          setState(() {
-            _imageUrl = reader.result as String; // ✅ Stocke l'image sous forme de Data URL (Base64)
-          });
-        });
+    final pickedFile = await _picker.pickImage(source: ImageSource.gallery);
+    if (pickedFile != null) {
+      setState(() {
+        _imageFile = File(pickedFile.path); // ✅ Stocke l'image locale pour Mobile
       });
-    } else {
-      final pickedFile = await _picker.pickImage(source: ImageSource.gallery);
-      if (pickedFile != null) {
-        setState(() {
-          _imageFile = File(pickedFile.path); // ✅ Stocke l'image locale pour Mobile
-        });
-      }
     }
   }
 
   /// ✅ Téléverse l'image sélectionnée sur Firebase Storage
   Future<String?> _uploadImage() async {
-    try {
-      if (_imageFile == null && _imageUrl.isEmpty) return null;
+    if (_imageFile == null) return _imageUrl; // ✅ Si aucune image n'a été changée, garder l'ancienne
 
-      if (kIsWeb) {
-        return _imageUrl; // ✅ Web : On garde l'URL de l'image
-      } else {
-        String fileName = '${DateTime.now().millisecondsSinceEpoch}.jpg';
-        Reference storageRef = FirebaseStorage.instance.ref().child('annonces/$fileName');
-        UploadTask uploadTask = storageRef.putFile(_imageFile!);
-        TaskSnapshot snapshot = await uploadTask;
-        return await snapshot.ref.getDownloadURL();
-      }
+    try {
+      String fileName = '${DateTime.now().millisecondsSinceEpoch}.jpg';
+      Reference storageRef = FirebaseStorage.instance.ref().child('annonces/$fileName');
+      UploadTask uploadTask = storageRef.putFile(_imageFile!);
+      TaskSnapshot snapshot = await uploadTask;
+      return await snapshot.ref.getDownloadURL();
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Erreur lors du téléversement de l\'image : $e')),

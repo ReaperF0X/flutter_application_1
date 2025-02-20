@@ -4,8 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:image_picker/image_picker.dart';
-import 'dart:html' as html; // ✅ Pour Web
-import 'package:flutter/foundation.dart' show kIsWeb; // ✅ Pour détecter Web
+import 'package:flutter/foundation.dart' show kIsWeb; // ✅ Pour vérifier si c'est Web
 
 import 'ChangePasswordPage.dart';
 import 'EditProfilePage.dart';
@@ -46,54 +45,34 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
-  /// ✅ Sélectionne une image
+  /// ✅ Sélectionne une image pour mise à jour
   Future<void> _pickImage() async {
-    if (kIsWeb) {
-      final html.FileUploadInputElement uploadInput = html.FileUploadInputElement()..accept = 'image/*';
-      uploadInput.click();
-      uploadInput.onChange.listen((event) async {
-        final file = uploadInput.files!.first;
-        final reader = html.FileReader();
-        reader.readAsDataUrl(file);
-        reader.onLoadEnd.listen((event) {
-          setState(() {
-            _imageUrl = reader.result as String;
-          });
-        });
+    final pickedFile = await _picker.pickImage(source: ImageSource.gallery);
+    if (pickedFile != null) {
+      setState(() {
+        _imageFile = File(pickedFile.path);
       });
-    } else {
-      final pickedFile = await _picker.pickImage(source: ImageSource.gallery);
-      if (pickedFile != null) {
-        setState(() {
-          _imageFile = File(pickedFile.path);
-        });
-      }
     }
   }
 
   /// ✅ Téléverse la photo de profil
   Future<void> _uploadImage() async {
-    if (_imageFile == null && _imageUrl.isEmpty) return;
+    if (_imageFile == null) return;
 
     setState(() => _isLoading = true);
 
-    String? imageUrl;
-    if (_imageFile != null) {
-      String fileName = '${DateTime.now().millisecondsSinceEpoch}.jpg';
-      Reference storageRef = FirebaseStorage.instance.ref().child('profile_pictures/$fileName');
-      UploadTask uploadTask = storageRef.putFile(_imageFile!);
-      TaskSnapshot snapshot = await uploadTask;
-      imageUrl = await snapshot.ref.getDownloadURL();
-    } else {
-      imageUrl = _imageUrl;
-    }
+    String fileName = '${DateTime.now().millisecondsSinceEpoch}.jpg';
+    Reference storageRef = FirebaseStorage.instance.ref().child('profile_pictures/$fileName');
+    UploadTask uploadTask = storageRef.putFile(_imageFile!);
+    TaskSnapshot snapshot = await uploadTask;
+    String imageUrl = await snapshot.ref.getDownloadURL();
 
     await FirebaseFirestore.instance.collection('users').doc(userId).update({
       'photoUrl': imageUrl,
     });
 
     setState(() {
-      _imageUrl = imageUrl!;
+      _imageUrl = imageUrl;
       _isLoading = false;
     });
 
@@ -112,54 +91,29 @@ class _ProfilePageState extends State<ProfilePage> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // ✅ Cercle pour la photo de profil
-              Stack(
-                alignment: Alignment.bottomRight,
-                children: [
-                  CircleAvatar(
-                    radius: 50,
-                    backgroundImage: _imageUrl.isNotEmpty ? NetworkImage(_imageUrl) : null,
-                    child: _imageUrl.isEmpty ? const Icon(Icons.person, size: 50) : null,
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.camera_alt, color: Colors.blue),
-                    onPressed: _pickImage,
-                  ),
-                ],
+              CircleAvatar(
+                radius: 50,
+                backgroundImage: _imageUrl.isNotEmpty ? NetworkImage(_imageUrl) : null,
+                child: _imageUrl.isEmpty ? const Icon(Icons.person, size: 50) : null,
               ),
               const SizedBox(height: 16),
-
-              /// ✅ **Affichage du pseudo de l'utilisateur**
               Text(
                 _username,
                 style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 16),
-
+              ElevatedButton(onPressed: _pickImage, child: const Text("Changer la photo")),
+              ElevatedButton(onPressed: _uploadImage, child: const Text("Mettre à jour la photo")),
               ElevatedButton(
-                onPressed: _uploadImage,
-                child: const Text("Mettre à jour la photo"),
-              ),
-              const SizedBox(height: 16),
-
-              ElevatedButton(
-                onPressed: () => Navigator.push(
-                  context, MaterialPageRoute(builder: (context) => const EditProfilePage()),
-                ),
+                onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const EditProfilePage())),
                 child: const Text('Modifier le profil'),
               ),
-              const SizedBox(height: 16),
               ElevatedButton(
-                onPressed: () => Navigator.push(
-                  context, MaterialPageRoute(builder: (context) => const ChangePasswordPage()),
-                ),
+                onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const ChangePasswordPage())),
                 child: const Text('Changer le mot de passe'),
               ),
-              const SizedBox(height: 16),
               ElevatedButton(
-                onPressed: () => Navigator.push(
-                  context, MaterialPageRoute(builder: (context) => const MesAnnoncesPage()),
-                ),
+                onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const MesAnnoncesPage())),
                 child: const Text('Mes annonces'),
               ),
             ],

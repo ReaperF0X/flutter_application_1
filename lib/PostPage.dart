@@ -4,9 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:flutter/foundation.dart' show kIsWeb; // ✅ Pour détecter Web
-import 'dart:html' as html; // ✅ Pour gérer les fichiers Web
-import 'HomePage.dart';
+import 'package:flutter/foundation.dart' show kIsWeb; // ✅ Vérification Web
 
 class PostPage extends StatefulWidget {
   const PostPage({super.key});
@@ -22,8 +20,8 @@ class _PostPageState extends State<PostPage> {
   String _selectedCategory = 'Électronique';
   String _selectedCondition = 'Neuf';
 
-  File? _imageFile; // ✅ Pour mobile
-  String _imageFileUrl = ""; // ✅ Pour stocker l'URL d'image (Web & Mobile)
+  File? _imageFile; // ✅ Pour Mobile
+  String _imageFileUrl = ""; // ✅ Pour Web
 
   bool _isLoading = false;
   final ImagePicker _picker = ImagePicker();
@@ -34,23 +32,13 @@ class _PostPageState extends State<PostPage> {
   /// ✅ Sélectionner une image pour Web et Mobile
   Future<void> _pickImage() async {
     if (kIsWeb) {
-      final html.FileUploadInputElement uploadInput = html.FileUploadInputElement()..accept = 'image/*';
-      uploadInput.click();
-      uploadInput.onChange.listen((event) async {
-        final file = uploadInput.files!.first;
-        final reader = html.FileReader();
-        reader.readAsDataUrl(file);
-        reader.onLoadEnd.listen((event) {
-          setState(() {
-            _imageFileUrl = reader.result as String; // ✅ Stocke l'image sous forme de Data URL (Base64)
-          });
-        });
-      });
+      print("Sélection d'une image pour le Web non prise en charge ici.");
+      return;
     } else {
       final pickedFile = await _picker.pickImage(source: ImageSource.gallery);
       if (pickedFile != null) {
         setState(() {
-          _imageFile = File(pickedFile.path); // ✅ Stocke l'image locale pour Mobile
+          _imageFile = File(pickedFile.path);
         });
       }
     }
@@ -58,16 +46,13 @@ class _PostPageState extends State<PostPage> {
 
   /// ✅ Téléverser l'image sur Firebase Storage
   Future<String?> _uploadImage() async {
+    if (_imageFile == null) return null;
     try {
-      if (kIsWeb) {
-        return _imageFileUrl; 
-      } else {
-        String fileName = '${DateTime.now().millisecondsSinceEpoch}.jpg';
-        Reference storageRef = FirebaseStorage.instance.ref().child('annonces/$fileName');
-        UploadTask uploadTask = storageRef.putFile(_imageFile!);
-        TaskSnapshot snapshot = await uploadTask;
-        return await snapshot.ref.getDownloadURL();
-      }
+      String fileName = '${DateTime.now().millisecondsSinceEpoch}.jpg';
+      Reference storageRef = FirebaseStorage.instance.ref().child('annonces/$fileName');
+      UploadTask uploadTask = storageRef.putFile(_imageFile!);
+      TaskSnapshot snapshot = await uploadTask;
+      return await snapshot.ref.getDownloadURL();
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Erreur lors du téléversement de l\'image : $e')),
@@ -76,9 +61,9 @@ class _PostPageState extends State<PostPage> {
     }
   }
 
-  /// ✅ Publier une annonce avec gestion de la date et redirection fluide
+  /// ✅ Publier une annonce
   Future<void> _postAnnonce() async {
-    if (_titleController.text.isEmpty || _descriptionController.text.isEmpty || _priceController.text.isEmpty || (_imageFile == null && _imageFileUrl.isEmpty)) {
+    if (_titleController.text.isEmpty || _descriptionController.text.isEmpty || _priceController.text.isEmpty || _imageFile == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Veuillez remplir tous les champs et ajouter une image')),
       );
@@ -109,9 +94,7 @@ class _PostPageState extends State<PostPage> {
       'etat': _selectedCondition,
       'imageUrl': imageUrl,
       'userId': user.uid,
-      'date': Timestamp.now(),  // ✅ Ajout de la date de publication
-      'likes': 0,
-      'dislikes': 0,
+      'date': Timestamp.now(),
     });
 
     setState(() {
@@ -120,35 +103,10 @@ class _PostPageState extends State<PostPage> {
       _descriptionController.clear();
       _priceController.clear();
       _imageFile = null;
-      _imageFileUrl = "";
-      _selectedCategory = 'Électronique';
-      _selectedCondition = 'Neuf';
     });
 
-    // ✅ Ajout d’un dialogue pour revenir à l'accueil
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text("Annonce publiée"),
-        content: const Text("Votre annonce a été publiée avec succès."),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              Navigator.pushReplacementNamed(context, '/home'); // ✅ Retour à l'accueil avec ruban
-            },
-            child: const Text("Retour à l'accueil"),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              Navigator.pushReplacementNamed(context, '/post'); // ✅ Reste sur PostPage
-            },
-            child: const Text("Continuer"),
-          ),
-        ],
-      ),
-    );
+    // ✅ Redirection après publication
+    Navigator.pushReplacementNamed(context, '/home');
   }
 
   @override
@@ -161,7 +119,6 @@ class _PostPageState extends State<PostPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Catégorie', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
               DropdownButton<String>(
                 value: _selectedCategory,
                 isExpanded: true,
@@ -176,7 +133,6 @@ class _PostPageState extends State<PostPage> {
               TextField(controller: _descriptionController, maxLines: 3, decoration: const InputDecoration(labelText: 'Description')),
               const SizedBox(height: 16),
 
-              const Text('État du produit', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
               DropdownButton<String>(
                 value: _selectedCondition,
                 isExpanded: true,
@@ -188,11 +144,9 @@ class _PostPageState extends State<PostPage> {
               TextField(controller: _priceController, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Prix (€)')),
               const SizedBox(height: 16),
 
-              _imageFile == null && _imageFileUrl.isEmpty
+              _imageFile == null
                   ? const Text('Aucune image sélectionnée')
-                  : kIsWeb
-                      ? Image.network(_imageFileUrl, height: 200, fit: BoxFit.cover)
-                      : Image.file(_imageFile!, height: 200, fit: BoxFit.cover),
+                  : Image.file(_imageFile!, height: 200, fit: BoxFit.cover),
               const SizedBox(height: 8),
 
               ElevatedButton(onPressed: _pickImage, child: const Text('Ajouter une image')),
